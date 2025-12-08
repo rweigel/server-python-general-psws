@@ -19,20 +19,20 @@ Test the plug-in
 
 ```
 cd server-python-general-psws
-python test.py --config bin/config.json
+python test.py --config config.json
 ```
 
 Start the PSWS server
 
 ```
 cd server-python-general-psws
-python ../server-python-general/hapiserver.py --config config.json
+hapiserver --config config.json
 ```
 
 For additional command-line options, see
 
 ```
-python ../server-python-general/hapiserver.py --help
+hapiserver --help
 ```
 
 # Development
@@ -58,5 +58,3 @@ Return response to `/hapi/data` request
 ```
 python bin/data.py W2NAF 2025-10-20 2025-10-21
 ```
-
-# server-python-general-psws
