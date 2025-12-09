@@ -2,13 +2,13 @@
   "index.html": "~/git/hapi/server-python-general/html/index.html",
   "path": "/hapi",
   "scripts": {
-    "catalog": "$PSWS_BIN_DIR/catalog.py",
-    "info": "$PSWS_BIN_DIR/info.py",
-    "data": "$PSWS_BIN_DIR/data.py"
+    "catalog": "$MADRIGAL_BIN_DIR/catalog.py",
+    "info": "$MADRIGAL_BIN_DIR/info.py",
+    "data": "$MADRIGAL_BIN_DIR/data.py"
   },
   "ENV": {
-    "MADRIGAL_BIN_DIR": "~/git/hapi/server-python-general-psws/bin",
-    "MADRIGAL_DATA_DIR": "~/git/hapi/server-python-general-psws/data"
+    "MADRIGAL_BIN_DIR": "~/git/hapi/server-python-general-madrigal/bin",
+    "MADRIGAL_DATA_DIR": "~/git/hapi/server-python-general-madrigal/data"
   },
   "about": {
     "id": "Madrigal",
