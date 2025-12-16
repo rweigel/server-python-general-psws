@@ -5,10 +5,26 @@ import madrigalWeb.madrigalWeb
 
 debug = True
 update = False
-categories = ["Magnetometers"] # None for all categories
+categories = ["Magnetometers", "Fabry-Perots"] # None for all categories
+
+files = {
+  'instruments': 'cache/madrigal/instruments.json',
+  'catalog': 'cache/hapi/catalog.json'
+}
+dirs = {
+  'instruments': 'cache/madrigal/instruments'
+}
 
 # The URL of the main Madrigal site you want to access
 madrigalUrl = 'https://cedar.openmadrigal.org'
+
+
+def write_json(file_name, data):
+  if not os.path.exists(os.path.dirname(file_name)):
+    os.makedirs(os.path.dirname(file_name), exist_ok=True)
+  with open(file_name, 'w') as f:
+    json.dump(data, f, indent=2)
+
 
 def getAllInstruments(update, categories=None):
   """Calls getAllInstruments() and returns a list of instrument dicts.
@@ -18,12 +34,13 @@ def getAllInstruments(update, categories=None):
   If categories is not None, filters instruments to only those in the given
   list of categories.
   """
-  cache_file = 'catalog.instruments.json'
+  cache_dir = os.path.dirname(files['instruments'])
+  os.makedirs(cache_dir, exist_ok=True)
 
   # Create the main object to get all needed info from Madrigal
   madrigalData = madrigalWeb.madrigalWeb.MadrigalData(madrigalUrl)
 
-  if update or not os.path.exists(cache_file):
+  if update or not os.path.exists(files['instruments']):
     # Get all instruments from Madrigal
     if debug:
       print(f'Calling getAllInstruments: {madrigalUrl}')
@@ -35,17 +52,17 @@ def getAllInstruments(update, categories=None):
       instruments.append(instrument.__dict__)
 
     # Cache
-    with open(cache_file, 'w') as f:
+    with open(files['instruments'], 'w') as f:
       if debug:
-        print('Writing instruments.json')
+        print(f'Writing {files['instruments']}')
       json.dump(instruments, f, indent=2)
 
   else:
 
     # Load from cache
-    with open(cache_file, 'r') as f:
+    with open(files['instruments'], 'r') as f:
       if debug:
-        print(f'Reading {cache_file}')
+        print(f'Reading {files['instruments']}')
       instruments = json.load(f)
 
   if debug:
@@ -56,6 +73,7 @@ def getAllInstruments(update, categories=None):
     instruments = [instrument for instrument in instruments if instrument['category'] in categories]
 
   return instruments
+
 
 def catalog(instruments):
   catalog_list = []
@@ -72,5 +90,16 @@ def catalog(instruments):
 
 instruments = getAllInstruments(update, categories=categories)
 catalog_list = catalog(instruments)
+
+if debug:
+  print(f'Writing {files["catalog"]}')
+write_json(files['catalog'], catalog_list)
+
+for instrument in instruments:
+  cache_file = os.path.join(dirs['instruments'], f"{instrument['code']}.json")
+  if debug:
+    print(f'Writing {cache_file}')
+  write_json(cache_file, instrument)
+
 catalog_json = json.dumps(catalog_list, indent=2)
 print(catalog_json)
