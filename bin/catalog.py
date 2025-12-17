@@ -1,32 +1,13 @@
 import os
 import json
 
-import madrigalWeb.madrigalWeb
+import util
 
 debug = True
 update = False
-categories = ["Magnetometers", "Fabry-Perots"] # None for all categories
-
-files = {
-  'instruments': 'cache/madrigal/instruments.json',
-  'catalog': 'cache/hapi/catalog.json'
-}
-dirs = {
-  'instruments': 'cache/madrigal/instruments'
-}
-
-# The URL of the main Madrigal site you want to access
-madrigalUrl = 'https://cedar.openmadrigal.org'
 
 
-def write_json(file_name, data):
-  if not os.path.exists(os.path.dirname(file_name)):
-    os.makedirs(os.path.dirname(file_name), exist_ok=True)
-  with open(file_name, 'w') as f:
-    json.dump(data, f, indent=2)
-
-
-def getAllInstruments(update, categories=None):
+def getAllInstruments(update, data_dir, categories=None):
   """Calls getAllInstruments() and returns a list of instrument dicts.
 
   Caches the result in catalog.instruments.json unless update=True.
@@ -34,36 +15,30 @@ def getAllInstruments(update, categories=None):
   If categories is not None, filters instruments to only those in the given
   list of categories.
   """
-  cache_dir = os.path.dirname(files['instruments'])
-  os.makedirs(cache_dir, exist_ok=True)
+  cache_dir = os.path.join(data_dir, 'madrigal')
+  cache_file = os.path.join(cache_dir, 'instruments.json')
 
-  # Create the main object to get all needed info from Madrigal
-  madrigalData = madrigalWeb.madrigalWeb.MadrigalData(madrigalUrl)
+  if update or not os.path.exists(cache_file):
 
-  if update or not os.path.exists(files['instruments']):
+    # Create the main object to get all needed info from Madrigal
+    if debug:
+      print(f"Calling madrigalWeb.madrigalWeb.MadrigalData('{config['madrigalUrl']})'")
+    madrigalData = util.madrigalData(debug=debug)
+
     # Get all instruments from Madrigal
     if debug:
-      print(f'Calling getAllInstruments: {madrigalUrl}')
-    instrument_objects = madrigalData.getAllInstruments()
+      print(f'Calling getAllInstruments: {config['madrigalUrl']}')
+    instruments = madrigalData.getAllInstruments()
 
-    # Convert to list of dicts for JSON serialization.
-    instruments = []
-    for instrument in instrument_objects:
-      instruments.append(instrument.__dict__)
+    instruments = util.to_dicts(instruments)
 
     # Cache
-    with open(files['instruments'], 'w') as f:
-      if debug:
-        print(f'Writing {files['instruments']}')
-      json.dump(instruments, f, indent=2)
+    util.write_json(cache_file, instruments)
 
   else:
 
     # Load from cache
-    with open(files['instruments'], 'r') as f:
-      if debug:
-        print(f'Reading {files['instruments']}')
-      instruments = json.load(f)
+    instruments = util.read_json(cache_file, debug=debug)
 
   if debug:
     print(f'Found {len(instruments)} instruments')
@@ -72,11 +47,20 @@ def getAllInstruments(update, categories=None):
     # Filter instruments by category
     instruments = [instrument for instrument in instruments if instrument['category'] in categories]
 
+  if debug:
+    print(f'Found {len(instruments)} instruments with category in {categories}')
+
+  for instrument in instruments:
+    cache_file = os.path.join(cache_dir, "instruments", f"{instrument['code']}.json")
+    if debug:
+      print(f'Writing {cache_file}')
+    util.write_json(cache_file, instrument)
+
   return instruments
 
 
-def catalog(instruments):
-  catalog_list = []
+def hapi_catalog(instruments, data_dir):
+  catalog = []
   # If mnemonic is unique, use it as id?
   for instrument in instruments:
     dataset = {
@@ -85,21 +69,19 @@ def catalog(instruments):
       'x_category': instrument['category'],
       'x_mnemonic': instrument['mnemonic'],
     }
-    catalog_list.append(dataset)
-  return catalog_list
+    catalog.append(dataset)
 
-instruments = getAllInstruments(update, categories=categories)
-catalog_list = catalog(instruments)
+  catalog_file = os.path.join(data_dir, 'hapi', 'catalog.json')
+  util.write_json(catalog_file, catalog)
 
-if debug:
-  print(f'Writing {files["catalog"]}')
-write_json(files['catalog'], catalog_list)
+  return catalog
 
-for instrument in instruments:
-  cache_file = os.path.join(dirs['instruments'], f"{instrument['code']}.json")
-  if debug:
-    print(f'Writing {cache_file}')
-  write_json(cache_file, instrument)
 
-catalog_json = json.dumps(catalog_list, indent=2)
-print(catalog_json)
+config = util.config()
+
+instruments = getAllInstruments(update, config['dataDir'], config['categories'])
+
+catalog = hapi_catalog(instruments, config['dataDir'])
+
+catalog_json = json.dumps(catalog, indent=2)
+#print(catalog_json)

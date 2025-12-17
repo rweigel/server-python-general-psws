@@ -1,31 +1,15 @@
 import os
 import json
-from datetime import datetime
 
-import madrigalWeb.madrigalWeb
+import util
 
 debug = True        # Print debug info to stdout.
 update = False      # False => used cached files when available.
-test_run = False    # True => only get 1st experiment's files and 1st file's parameters.
 
-url = 'https://cedar.openmadrigal.org'
-user = ['CEDAR Example', 'example@gmail.com', 'CEDAR/GEM tutorial day 2025']
-
-ids = None  # None for all ids
-#ids = [8250]  # For testing, everything works
-#ids = [8255] # No experiments
-
-dirs = {
-  'instruments': 'cache/madrigal/instruments',
-  'data':        'cache/madrigal/data',
-  'info':        'cache/hapi/info'
-}
-
-
-if debug:
-  print(f"Calling madrigalWeb.madrigalWeb.MadrigalData('{url})'")
-
-madDB = madrigalWeb.madrigalWeb.MadrigalData(url)
+test_run = False # True => only get 1st experiment's files and 1st file's parameters.
+ids = None      # None for all ids
+#ids = [8250]   # Everything works
+#ids = [8255]   # No experiments
 
 
 def format_time(exp, which):
@@ -37,28 +21,19 @@ def format_time(exp, which):
   return timestamp
 
 
-def write_json(file_name, data):
-  if not os.path.exists(os.path.dirname(file_name)):
-    os.makedirs(os.path.dirname(file_name), exist_ok=True)
-  with open(file_name, 'w') as f:
-    json.dump(data, f, indent=2)
+def add_experiments(instrument, madrigal_dir):
 
+  from datetime import datetime
 
-def to_dicts(obj):
-  return [o.__dict__ for o in obj if o is not None]
+  start = [1950, 1, 1, 0, 0, 0]
+  stop = [1 + datetime.now().year, 1, 1, 0, 0, 0]
 
+  experiments_dir = os.path.join(madrigal_dir, 'instruments', str(instrument['code']))
+  experiments_file = os.path.join(experiments_dir, "experiments.json")
 
-def add_experiments(instrument, start, stop):
-
-  experiment_dir = os.path.join(dirs['instruments'], str(instrument['code']))
-  cache_file = os.path.join(experiment_dir, "experiments.json")
-
-  if not update and os.path.exists(cache_file):
+  if not update and os.path.exists(experiments_file):
     # Load from cache
-    with open(cache_file, 'r') as f:
-      if debug:
-        print(f'Reading {cache_file}')
-      instrument['experiments'] = json.load(f)
+    instrument['experiments'] = util.read_json(experiments_file, debug=debug)
     return
 
   if debug:
@@ -66,9 +41,11 @@ def add_experiments(instrument, start, stop):
     msg += f"'{instrument['code']}' and name '{instrument['name']}'"
     print(msg)
 
-  experiments = madDB.getExperiments(instrument['code'], *start, *stop)
+  madrigalData = util.madrigalData(debug=debug)
 
-  experiments = to_dicts(experiments)
+  experiments = madrigalData.getExperiments(instrument['code'], *start, *stop)
+
+  experiments = util.to_dicts(experiments)
 
   instrument['experiments'] = experiments
 
@@ -77,12 +54,11 @@ def add_experiments(instrument, start, stop):
       print("  No experiments found")
     else:
       print(f"  Found {len(experiments)} experiments")
-    print(f'  Writing {cache_file}')
 
-  write_json(cache_file, experiments)
+  util.write_json(experiments_file, experiments, debug=debug, indent=2)
 
 
-def add_files(instrument):
+def add_files(instrument, madrigal_dir):
 
   experiments = instrument['experiments']
   if len(experiments) == 0:
@@ -95,13 +71,10 @@ def add_files(instrument):
       break
 
     files_dir = os.path.join(str(instrument['code']), str(experiment['id']))
-    files_file = os.path.join(dirs['instruments'], files_dir, "files.json")
+    files_file = os.path.join(madrigal_dir, 'instruments', files_dir, "files.json")
     if not update and os.path.exists(files_file):
       # Load from cache
-      with open(files_file, 'r') as f:
-        if debug:
-          print(f'Reading {files_file}')
-        experiment['files'] = json.load(f)
+      experiment['files'] = util.read_json(files_file, debug=debug)
       continue
 
     if debug:
@@ -113,7 +86,9 @@ def add_files(instrument):
       msg = "  Calling getExperimentFiles()"
       print(msg)
 
-    files = madDB.getExperimentFiles(experiment['id'])
+    madrigalData = util.madrigalData(debug=debug)
+
+    files = madrigalData.getExperimentFiles(experiment['id'])
 
     if len(files) == 0:
       del experiment
@@ -121,7 +96,7 @@ def add_files(instrument):
         print("   Experiment has no files. Deleting experiment.")
       return
 
-    files = to_dicts(files)
+    files = util.to_dicts(files)
 
     if len(files) == 0:
       # TODO: Need to update catalog.json to remove this experiment.
@@ -134,12 +109,10 @@ def add_files(instrument):
       s = "s" if len(files) != 1 else ""
       print(f"    Found {len(files)} file{s}")
 
-    if debug:
-      print(f'    Writing {files_file}')
-    write_json(files_file, files)
+    util.write_json(files_file, files, debug=debug, indent=4)
 
 
-def add_parameters(instrument):
+def add_parameters(instrument, madrigal_dir):
 
   experiments = instrument['experiments']
   for experiment in experiments:
@@ -154,7 +127,7 @@ def add_parameters(instrument):
         break
 
       parameters_dir = os.path.join(str(instrument['code']), str(experiment['id']), f"{idx:09d}")
-      parameters_file = os.path.join(dirs['instruments'], parameters_dir, "parameters.json")
+      parameters_file = os.path.join(madrigal_dir, 'instruments', parameters_dir, "parameters.json")
       if not update and os.path.exists(parameters_file):
         # Load from cache
         with open(parameters_file, 'r') as f:
@@ -170,7 +143,8 @@ def add_parameters(instrument):
         msg = "    Calling getExperimentFileParameters()"
         print(msg)
 
-      parameters = madDB.getExperimentFileParameters(file['name'])
+      madrigalData = util.madrigalData(debug=debug)
+      parameters = madrigalData.getExperimentFileParameters(file['name'])
 
       if len(parameters) == 0:
         del file
@@ -178,7 +152,7 @@ def add_parameters(instrument):
           print("     File has no parameters. Deleting file.")
         return
 
-      parameters = to_dicts(parameters)
+      parameters = util.to_dicts(parameters)
 
       file['parameters'] = parameters
 
@@ -187,7 +161,7 @@ def add_parameters(instrument):
         print(f"    Found {len(parameters)} parameter{s}")
         print(f'    Writing {parameters_file}')
 
-      write_json(parameters_file, parameters)
+      util.write_json(parameters_file, parameters, debug=debug, indent=4)
 
 
 def all_parameters(experiments):
@@ -205,27 +179,7 @@ def all_parameters(experiments):
   return common_params
 
 
-def download_file():
-
-      if False:
-        out_file = os.path.join(dirs['data'], file['name'].lstrip("/"))
-        out_dir = os.path.dirname(out_file)
-        if not os.path.exists(out_dir):
-          os.makedirs(out_dir, exist_ok=True)
-
-        if update or not os.path.exists(out_file):
-          if debug:
-            print(f"    Calling downloadFile() for {file['name']}")
-          madDB.downloadFile(file['name'], out_file, *user, format='hdf5')
-
-        if not update and debug:
-          print(f"    Using cached file {out_file}")
-
-        if debug:
-          print(f"    Calling getExperimentFileParameters() for {out_file}")
-
-
-def hapi_info(instrument):
+def hapi_info(instrument, hapi_dir):
 
   experiments = instrument['experiments']
   if len(experiments) == 0:
@@ -275,59 +229,52 @@ def hapi_info(instrument):
 
   info['parameters'] = parameters
 
-  cache_file = os.path.join(dirs['info'], f"{instrument['code']}.json")
-  if debug:
-    print(f"Writing {cache_file}")
-  write_json(cache_file, info)
+  cache_file = os.path.join(hapi_dir, 'info', f"{instrument['code']}.json")
+  util.write_json(cache_file, info, debug=debug)
 
   return info
 
 
-# Read top-level instrument metadata generated by catalog.py from cache
-fname = dirs['instruments'] + '.json'
-with open(fname, 'r') as f:
-  if debug:
-    print(f'Reading {fname}')
-  instruments = json.load(f)
+config = util.config()
+
+madrigal_dir = os.path.join(config['dataDir'], "madrigal")
+hapi_dir = os.path.join(config['dataDir'], "hapi")
+
+# Read top-level instrument metadata generated by catalog.py
+instruments_file = os.path.join(madrigal_dir, "instruments.json")
+instruments = util.read_json(instruments_file, debug=debug)
 
 if debug:
   print(f'Found {len(instruments)} instruments from catalog')
 
-start = [1950, 1, 1, 0, 0, 0]
-stop = [1 + datetime.now().year, 1, 1, 0, 0, 0]
-
-infos = {}
 for instrument in instruments:
 
   if ids is not None and instrument['code'] not in ids:
     continue
 
-  # Read instrument metadata generated by catalog.py from cache
-  fname = os.path.join(dirs['instruments'], f"{instrument['code']}.json")
-  if not os.path.exists(fname):
+  # Instrument metadata generated by catalog.py from cache
+  instrument_file = f"{instrument['code']}.json"
+  instrument_file = os.path.join(madrigal_dir, "instruments", instrument_file)
+
+  if not os.path.exists(instrument_file):
     # Skip instruments omitted by catalog.py
     continue
 
-  with open(fname, 'r') as f:
-    if debug:
-      print(f'Reading {fname}')
-    instrument = json.load(f)
+  instrument = util.read_json(instrument_file, debug=debug)
 
   # Add experiments to each instrument dict.
-  add_experiments(instrument, start, stop)
+  add_experiments(instrument, madrigal_dir)
 
   # Add files to each instrument dict.
-  add_files(instrument)
+  add_files(instrument, madrigal_dir)
 
   # Add parameters to each file dict.
-  add_parameters(instrument)
+  add_parameters(instrument, madrigal_dir)
 
-  # Cache full instrument metadata
-  fname = fname[:-5] + '.all.json'
   if not test_run:
-    if debug:
-      print(f"Writing {fname}")
-    write_json(fname, instrument)
+    # Cache all instrument metadata
+    instrument_file_all = instrument_file[:-5] + '.all.json'
+    util.write_json(instrument_file_all, instrument, debug=debug)
 
   # Create HAPI info response for this instrument
-  info = hapi_info(instrument)
+  info = hapi_info(instrument, hapi_dir)
