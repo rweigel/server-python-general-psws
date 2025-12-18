@@ -26,7 +26,8 @@ Start the PSWS server
 
 ```
 cd server-python-general-psws
-hapiserver --config config.json
+hapiserver --config config.json --port 8889
+# Open http://0.0.0.0/hapi
 ```
 
 For additional command-line options, see
@@ -37,7 +38,7 @@ hapiserver --help
 
 # Development
 
-Assumes magnetometer data in directories as under `data/` - each subdir corresponds to data from a station with ID in `catalog.csv`.
+Assumes magnetometer data in directories as under `server-python-general-psws/data/` - each subdir corresponds to data from a station with ID in `catalog.csv`.
 
 The responses to HAPI endpoints are implemented as Python scripts that return the response to `stdout`.
 

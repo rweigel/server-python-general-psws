@@ -1,14 +1,16 @@
 {
-  "index.html": "~/git/hapi/server-python-general/html/index.html",
+  "index.html": "~/git/hapi/server-python-new/server-python-general/html/index.html",
   "path": "/hapi",
   "scripts": {
-    "catalog": "$PSWS_BIN_DIR/catalog.py",
-    "info": "$PSWS_BIN_DIR/info.py",
-    "data": "$PSWS_BIN_DIR/data.py"
+    "catalog": "$BIN_DIR/catalog.py",
+    "info": "$BIN_DIR/info.py",
+    "data": "$BIN_DIR/data.py"
   },
   "ENV": {
-    "PSWS_BIN_DIR": "bin",
-    "PSWS_DATA_DIR": "data"
+    "BIN_DIR": "~/git/hapi/server-python-new/server-python-general-psws/bin"
+  },
+  "module": {
+    "data_dir": "~/git/hapi/server-python-new/server-python-general-psws/data"
   },
   "about": {
     "id": "PSWS",

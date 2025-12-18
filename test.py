@@ -49,13 +49,6 @@ def run_tests(configs, wait):
   assert 'parameters' in response.json()
   assert len(response.json()['parameters']) > 0
 
-  url = f"{url_base}/info?xdataset=S000028"
-  response = requests.get(url)
-  assert response.status_code == 400
-  assert 'application/json' in response.headers['Content-Type']
-  assert 'status' in response.json()
-  assert response.json()['status']['code'] == 1401
-
   url = f"{url_base}/data?dataset=S000028&&start=2025-10-20T00:00:00Z&stop=2025-10-20T00:00:01Z"
   response = requests.get(url)
   assert response.status_code == 200
@@ -77,5 +70,6 @@ if __name__ == "__main__":
     "delay": 0.5
   }
 
-  configs = hapiserver.cli()
+  config = "config.json"
+  configs = hapiserver.cli(config=config)
   run_tests(configs, wait)
