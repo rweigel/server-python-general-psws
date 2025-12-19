@@ -13,9 +13,10 @@
     "data_dir": "~/git/hapi/server-python-new/server-python-general-psws/data"
   },
   "about": {
-    "id": "PSWS",
-    "title": "PSWS HAPI Server",
-    "HAPI": "3.3",
-    "contact": ""
+    "id": "Madrigal",
+    "title": "Madrigal Data HAPI Server",
+    "contact": "haystack-madrigal-admin@mit.edu",
+    "citation": "https://cedar.openmadrigal.org",
+    "HAPI": "3.3"
   }
 }
