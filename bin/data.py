@@ -108,26 +108,18 @@ def read_file(id, filename, start, stop, parameters, data_dir):
       print(row)
 
 
-with open(os.path.join(os.path.dirname(__file__), "..", "config.json"), 'r') as f:
-  try:
-    config_all = json.load(f)
-    config = config_all['module']
-  except Exception as e:
-    error(f"Error: Could not parse config file: {e}")
-    exit(1)
-
 # Get data_dir from environment variable
-data_dir = config.get('data_dir', None)
-if data_dir is None:
-  error("No data_dir in config['module']. Exiting with code 1.")
+data_dir = os.getenv("PSWS_DATA_DIR")
+if not data_dir and not debug:
+  error("Environment variable PSWS_DATA_DIR not set. Exiting with code 1.")
+else:
+  data_dir = "data"
 
 try:
   data_dir = os.path.expanduser(data_dir)
 except Exception as e:
-  error(f"Could not expand data_dir = '{data_dir}': {e}. Exiting with code 1.")
+  error("Could not expand PSWS_DATA_DIR env variable. Exiting with code 1.")
 
-if debug:
-  print(f"data_dir: {data_dir}")
 
 if len(sys.argv) < 4:
   error("At least three command line arguments needed: python data.py <id> <start> <stop> [<parameters>]")
