@@ -48,7 +48,7 @@ def get_sorted_files(path: str, sort_key: str) -> List[str]:
     return [e.name for e in entries]
 
 
-def mirror_first_last(src: str, dst: str, sort_key: str = 'name', dry_run: bool = False, verbose: bool = False) -> None:
+def mirror_first_last(src: str, dst: str, sort_key: str = 'name', dry_run: bool = False, verbose: bool = False, top_n: int = None) -> None:
     """Mirror directory tree from src to dst copying only first and last file per directory."""
     src = os.path.abspath(src)
     dst = os.path.abspath(dst)
@@ -57,6 +57,13 @@ def mirror_first_last(src: str, dst: str, sort_key: str = 'name', dry_run: bool 
         raise ValueError(f"Source '{src}' is not a directory")
 
     for root, dirs, files in os.walk(src):
+        # If we're at the top-level of the source tree and a top-level limit
+        # was provided, restrict traversal to the first `top_n` directories.
+        # We sort `dirs` by name so the selection is deterministic.
+        if top_n is not None and os.path.abspath(root) == src:
+            dirs.sort()
+            # modify dirs in-place to limit which subdirectories os.walk will traverse
+            del dirs[top_n:]
         # Compute corresponding destination directory
         rel_dir = os.path.relpath(root, src)
         if rel_dir == '.':
@@ -110,13 +117,14 @@ def parse_args():
     p.add_argument('--sort', choices=['name', 'mtime', 'ctime', 'size'], default='name', help='Sort key to determine first/last (default: name)')
     p.add_argument('--dry-run', action='store_true', help="Don't actually copy files; just show what would be done")
     p.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
+    p.add_argument('--top-level-limit', '-n', type=int, default=None, help='Only traverse the first N top-level subdirectories (sorted by name).')
     return p.parse_args()
 
 
 def main():
     args = parse_args()
     try:
-        mirror_first_last(args.src, args.dst, sort_key=args.sort, dry_run=args.dry_run, verbose=args.verbose)
+        mirror_first_last(args.src, args.dst, sort_key=args.sort, dry_run=args.dry_run, verbose=args.verbose, top_n=args.top_level_limit)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
