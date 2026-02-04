@@ -52,6 +52,8 @@ def mirror_first_last(src: str, dst: str, sort_key: str = 'name', dry_run: bool 
     """Mirror directory tree from src to dst copying only first and last file per directory."""
     src = os.path.abspath(src)
     dst = os.path.abspath(dst)
+    total_size = 0
+    total_files = 0
 
     if not os.path.isdir(src):
         raise ValueError(f"Source '{src}' is not a directory")
@@ -100,14 +102,26 @@ def mirror_first_last(src: str, dst: str, sort_key: str = 'name', dry_run: bool 
         for fname in to_copy:
             src_path = os.path.join(root, fname)
             dst_path = os.path.join(dest_dir, fname)
-            if verbose:
-                print(f"  copy: {src_path} -> {dst_path}")
+            
+            # Get file size
+            try:
+                file_size = os.path.getsize(src_path)
+                total_size += file_size
+                total_files += 1
+                size_mb = file_size / (1024 * 1024)
+                print(f"  {'[dry-run] ' if dry_run else ''}copy: {src_path} -> {dst_path} ({size_mb:.2f} MB)")
+            except Exception as e:
+                print(f"Warning: failed to get size of {src_path}: {e}", file=sys.stderr)
+                file_size = 0
+            
             if not dry_run:
                 try:
                     shutil.copy2(src_path, dst_path)
                 except Exception as e:
                     # Don't crash the whole run for one file; report and continue
                     print(f"Warning: failed to copy {src_path} -> {dst_path}: {e}", file=sys.stderr)
+    
+    return total_size, total_files
 
 
 def parse_args():
@@ -124,7 +138,10 @@ def parse_args():
 def main():
     args = parse_args()
     try:
-        mirror_first_last(args.src, args.dst, sort_key=args.sort, dry_run=args.dry_run, verbose=args.verbose, top_n=args.top_level_limit)
+        total_size, total_files = mirror_first_last(args.src, args.dst, sort_key=args.sort, dry_run=args.dry_run, verbose=args.verbose, top_n=args.top_level_limit)
+        total_mb = total_size / (1024 * 1024)
+        total_gb = total_size / (1024 * 1024 * 1024)
+        print(f"\n{'[dry-run] ' if args.dry_run else ''}Total: {total_files} files, {total_mb:.2f} MB ({total_gb:.2f} GB)")
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
