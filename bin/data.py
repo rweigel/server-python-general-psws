@@ -127,6 +127,7 @@ def print_data(id, filename, start, stop, parameters, data_dir):
   if id.endswith('/doppler'):
     print_data_doppler(filepath, start, stop, parameters)
 
+
 def print_data_doppler(filepath, start, stop, parameters):
 
   with open(filepath, 'r') as f:
@@ -143,6 +144,7 @@ def print_data_doppler(filepath, start, stop, parameters):
       if 'Vpk' in parameters:
         row += "," + cols[2].strip()
       print(row)
+
 
 def print_data_mag(filepath, start, stop, parameters):
 
