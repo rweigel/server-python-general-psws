@@ -5,20 +5,22 @@ from pathlib import Path
 print_first_lines = False
 
 # Get all files in ../data/*/magData directories
-data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data'))
+#data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data'))
+data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data2/home_filtered'))
 
-def error(emsg):
-  import sys
-  print(emsg, file=sys.stderr)
-  exit(1)
 
-def error_log(filepath, line, line_no, emsg=None, e=None):
-  print("    Error:")
-  print(f"      Line {line_no}: {line}")
+def xprint(msg):
+  print(msg)
+  print(msg, file=log_file)
+
+def error(line, line_no, emsg=None, e=None):
+  xprint("    Error:")
+  xprint(f"      Line {line_no}: {line}")
   if emsg:
-    print(f"      Problem: {emsg}")
+    xprint(f"      Problem: {emsg}")
   if e:
-    print(f"      Error: {e}")
+      xprint(f"      Error: {e}")
+
 
 def files(data_type):
   all_files = {}
@@ -29,8 +31,11 @@ def files(data_type):
   for dir_name in data_dir.iterdir():
     if dir_name.is_dir():
       all_files[dir_name.name] = {}
-      print(f"Found directory: {dir_name.name}")
+
       mag_data_dir = dir_name / sub_dir
+      n_files = len(list((mag_data_dir).glob('*.zip')))
+      xprint(f"{dir_name.name}/{sub_dir} has {n_files} .zip files")
+
       if not mag_data_dir.exists() or not mag_data_dir.is_dir():
         continue
       files = []
@@ -42,7 +47,8 @@ def files(data_type):
 
   return all_files
 
-def print_data_mag(filepath):
+
+def read(filepath):
 
   import re
   import sys
@@ -67,24 +73,13 @@ def print_data_mag(filepath):
   # loops over lines in c code.
   data = extract_data(filepath)
 
-  parameters = None
-
-  if print_first_lines:
-    line_no = 0
-    for line in data.splitlines():
-      line_no += 1
-      if line_no < 3:
-        print(f"    line {line_no}: {line}")
-
-      if line_no == 3:
-        break
-
-    return
-
   line_no = 0
-  print(f"    # of lines: {len(data.splitlines())}")
-  print(f"    first line: {data.splitlines()[0]}")
-  print(f"    last line:  {data.splitlines()[-1]}")
+  xprint(f"    # of lines: {len(data.splitlines())}")
+  if len(data.splitlines()) == 0:
+    error(None, -1, "File is empty")
+    return pd.DataFrame()  # Return empty DataFrame for empty files
+  xprint(f"    first line: {data.splitlines()[0]}")
+  xprint(f"    last line:  {data.splitlines()[-1]}")
   format = None
 
   format_last = None
@@ -93,12 +88,12 @@ def print_data_mag(filepath):
 
     line_no += 1
     if debug:
-      print(f"Debug: Processing line: {line}", file=sys.stderr)
+      xprint(f"Debug: Processing line: {line}", file=sys.stderr)
 
     if line.startswith('{'):
       format = 1
       if format != format_last and format_last is not None:
-        error_log(filepath, line, line_no, "Inconsistent row format")
+        error(line, line_no, "Row format on this line does not match previous.")
         break
       format_last = 1
       # Row format:
@@ -107,7 +102,7 @@ def print_data_mag(filepath):
       #  'rx': -68515, 'ry': -19927, 'rz': 24226, 'Tm': 50236.2845}
       entry = json.loads(line)
       if len(entry) != 10:
-        error_log(filepath, line, line_no, "Number of fields != 10")
+        error(line, line_no, "Number of fields != 10 for JSON row format.")
         break
 
       ts = entry['ts']
@@ -115,7 +110,7 @@ def print_data_mag(filepath):
         dt = datetime.datetime.strptime(ts, '%d %b %Y %H:%M:%S')
         entry['ts'] = dt.strftime('%Y-%m-%dT%H:%M:%SZ')
       except Exception as e:
-        error_log(filepath, line, line_no, "Failed to parse time value", e)
+        error(line, line_no, "Failed to parse time value", e)
         break
 
     elif re.match(r'^"\d', line):
@@ -128,7 +123,7 @@ def print_data_mag(filepath):
       if len(entry) == 10:
         format = 3
       if format != format_last and format_last is not None:
-        error_log(filepath, line, line_no, "Inconsistent row format")
+        error(line, line_no, "Row format on this line does not match previous.")
         break
       format_last = format
 
@@ -136,7 +131,7 @@ def print_data_mag(filepath):
       try:
         dt = datetime.datetime.strptime(ts, '%d %b %Y %H:%M:%S')
       except Exception as e:
-        error_log(filepath, line, line_no, "Failed to parse time value", e)
+        error(line, line_no, "Failed to parse time value", e)
         break
 
       if format == 2:
@@ -167,46 +162,73 @@ def print_data_mag(filepath):
           'Tm': float(entry[9]),
         }
     else:
-      error_log(filepath, line, line_no, "Non-data line")
+      error(line, line_no, "Non-data line")
       break
 
-    last_line = line
     row = entry['ts']
 
-    if False:
-      if parameters is None or 'Field_Vector' in parameters:
-        row += f",{entry['x']},{entry['y']},{entry['z']}"
-      if parameters is None or 'rxryrz' in parameters:
-        row += f",{entry['rx']},{entry['ry']},{entry['rz']}"
-      if parameters is None or 'rt' in parameters:
-        row += f",{entry['rt']}"
-      if parameters is None or 'lt' in parameters:
-        row += f",{entry['lt']}"
-      if parameters is None or 'Tm' in parameters:
-        row += f",{entry['Tm']}"
-    else:
-      row = [
-              entry['ts'], entry['x'], entry['y'], entry['z'],
-              entry['rx'], entry['ry'], entry['rz'],
-              entry['rt'], entry['lt'], entry['Tm']
-            ]
-      rows.append(row)
+    row = [
+            entry['ts'], entry['x'], entry['y'], entry['z'],
+            entry['rx'], entry['ry'], entry['rz'],
+            entry['rt'], entry['lt'], entry['Tm']
+          ]
+
+    rows.append(row)
 
   # Create DataFrame from list of lists with time as index
-  df = pd.DataFrame(rows, columns=['time', 'x', 'y', 'z', 'rx', 'ry', 'rz', 'rt', 'lt', 'Tm'])
+  columns = ['time', 'x', 'y', 'z', 'rx', 'ry', 'rz', 'rt', 'lt', 'Tm']
+  df = pd.DataFrame(rows, columns=columns)
   df['time'] = pd.to_datetime(df['time'])
   df.set_index('time', inplace=True)
 
   # Check that time is monotonically increasing
   if not df.index.is_monotonic_increasing:
-    error_log(filepath, None, -1, "Time values are not monotonically increasing")
+    error(None, -1, "Time values are not monotonically increasing")
 
   return df
 
+
+# Remove previous log file if it exists
+if os.path.exists('files.log'):
+  os.remove('files.log')
+
+# Open log file in append mode
+log_file = open('files.log', 'a')
+
 mag_files = files('mag')
 
+df_last = None
 for dataset in mag_files:
-  print(f"Dataset: {dataset}")
+  xprint(f"Dataset: {dataset}")
   for filepath in mag_files[dataset]:
-    print(f"  File: {filepath}")
-    print_data_mag(os.path.join(data_dir, filepath))
+
+    xprint(f"  File: {filepath}")
+    try:
+      df = read(os.path.join(data_dir, filepath))
+    except Exception as e:
+      error(None, -1, "Uncaught read error", e)
+      continue
+
+    file_name = os.path.basename(filepath)
+    if not file_name.startswith("OBS"):
+      error(None, -1, "File name does not start with OBS")
+    file_date = file_name[3:12]
+
+    # Check that date in time column of df matches date in file name
+    if not df.empty:
+      df_date = df.index[0].strftime('%Y-%m-%d')
+      if not df_date.startswith(file_date):
+        error(None, -1, "Date in file name does not match date in time column")
+        error(None, -1, f"  Date in file name: {file_date}")
+        error(None, -1, f"  Date in time column: {df_date}")
+
+    if df_last is not None:
+      if not df.index.is_monotonic_increasing:
+        if df.index[0] <= df_last.index[-1]:
+          xprint("  Warning: Time values are not strictly increasing across files")
+          xprint(f"  Last timestamp of previous file: {df_last.index[-1]}")
+          xprint(f"  First timestamp of current file: {df.index[0]}")
+
+    df_last = df
+
+log_file.close()
