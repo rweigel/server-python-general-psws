@@ -7,7 +7,7 @@ print_first_lines = False
 # Get all files in ../data/*/magData directories
 #data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data'))
 data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data2/home_filtered'))
-
+data_dir = Path('/Volumes/WDMyPassport5TB-2/psws/home_filtered')
 
 def xprint(msg):
   print(msg)
