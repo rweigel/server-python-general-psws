@@ -6,8 +6,8 @@ print_first_lines = False
 
 # Get all files in ../data/*/magData directories
 #data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data'))
-data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data2/home_filtered'))
-data_dir = Path('/Volumes/WDMyPassport5TB-2/psws/home_filtered')
+data_dir = Path('data2/psws/home_filtered')
+#data_dir = Path('/Volumes/WDMyPassport5TB-2/psws/home_filtered')
 
 def xprint(msg):
   print(msg)
@@ -27,28 +27,56 @@ def files(data_type):
 
   if data_type == 'mag':
     sub_dir = 'magData'
+    ext = '.zip'
+  if data_type == 'doppler':
+    sub_dir = 'csvData'
+    ext = '.csv'
 
   for dir_name in data_dir.iterdir():
     if dir_name.is_dir():
       all_files[dir_name.name] = {}
 
       mag_data_dir = dir_name / sub_dir
-      n_files = len(list((mag_data_dir).glob('*.zip')))
-      xprint(f"{dir_name.name}/{sub_dir} has {n_files} .zip files")
+      n_files = len(list((mag_data_dir).glob(f'*{ext}')))
+      xprint(f"{dir_name.name}/{sub_dir} has {n_files} {ext} files")
 
       if not mag_data_dir.exists() or not mag_data_dir.is_dir():
         continue
       files = []
       for f in mag_data_dir.iterdir():
-        if f.is_file() and f.name.endswith('.zip'):
+        if f.is_file() and f.name.endswith(ext):
           files.append(str(f.relative_to(data_dir)))
       files.sort()
       all_files[dir_name.name] = files
 
   return all_files
 
+def read_doppler(filepath):
+  import pandas as pd
 
-def read(filepath):
+  # Read the file to check basic info
+  with open(filepath, 'r') as f:
+    lines = f.readlines()
+
+  xprint(f"    # of lines: {len(lines)}")
+  if len(lines) == 0:
+    error(None, -1, "File is empty")
+    return pd.DataFrame()  # Return empty DataFrame for empty files
+  xprint(f"    first line: {lines[0].strip()}")
+  xprint(f"    last line:  {lines[-1].strip()}")
+
+  # Read CSV file with pandas, skipping comment lines that start with #
+  df = pd.read_csv(filepath, comment='#', skipinitialspace=True)
+
+  # Convert UTC column to datetime and set as index
+  if 'UTC' in df.columns:
+    df['UTC'] = pd.to_datetime(df['UTC'])
+    df.set_index('UTC', inplace=True)
+
+  return df
+
+
+def read_mag(filepath):
 
   import re
   import sys
@@ -188,6 +216,23 @@ def read(filepath):
   return df
 
 
+def check_times(df, df_last, file_date):
+  # Check that date in time column of df matches date in file name
+  if not df.empty:
+    df_date = df.index[0].strftime('%Y-%m-%d')
+    if not df_date.startswith(file_date):
+      error(None, -1, "Date in file name does not match date in time column")
+      error(None, -1, f"  Date in file name: {file_date}")
+      error(None, -1, f"  Date in time column: {df_date}")
+
+  if df_last is not None:
+    if not df.index.is_monotonic_increasing:
+      if df.index[0] <= df_last.index[-1]:
+        xprint("  Warning: Time values are not strictly increasing across files")
+        xprint(f"  Last timestamp of previous file: {df_last.index[-1]}")
+        xprint(f"  First timestamp of current file: {df.index[0]}")
+
+
 # Remove previous log file if it exists
 if os.path.exists('files.log'):
   os.remove('files.log')
@@ -195,8 +240,45 @@ if os.path.exists('files.log'):
 # Open log file in append mode
 log_file = open('files.log', 'a')
 
-mag_files = files('mag')
 
+dop_files = files('doppler')
+
+df_last = None
+for dataset in dop_files:
+  xprint(f"Dataset: {dataset}")
+  filepaths = dop_files[dataset]
+
+  # Extract unique parts after 'Z_'
+  unique_suffixes = set()
+  for filepath in filepaths:
+    filename = os.path.basename(filepath)
+    if 'Z_' in filename:
+      suffix = filename.split('Z_', 1)[1]
+      unique_suffixes.add(suffix)
+
+  unique_suffixes = sorted(unique_suffixes)
+  xprint(f"  {len(unique_suffixes)} unique suffixes: {unique_suffixes}")
+
+  for suffix in sorted(unique_suffixes):
+    xprint(f"  * Processing suffix: {suffix}")
+    # Get all files with this suffix
+    matching_files = [fp for fp in filepaths if fp.endswith(suffix)]
+    for filepath in matching_files:
+      xprint(f"  File: {filepath}")
+      try:
+        df = read_doppler(os.path.join(data_dir, filepath))
+      except Exception as e:
+        error(None, -1, "Uncaught read error", e)
+        continue
+
+    file_name = os.path.basename(filepath)
+    file_date = file_name[0:10]
+    check_times(df, df_last, file_date)
+    df_last = df
+
+exit()
+
+mag_files = files('mag')
 df_last = None
 for dataset in mag_files:
   xprint(f"Dataset: {dataset}")
@@ -204,7 +286,7 @@ for dataset in mag_files:
 
     xprint(f"  File: {filepath}")
     try:
-      df = read(os.path.join(data_dir, filepath))
+      df = read_mag(os.path.join(data_dir, filepath))
     except Exception as e:
       error(None, -1, "Uncaught read error", e)
       continue
@@ -214,20 +296,7 @@ for dataset in mag_files:
       error(None, -1, "File name does not start with OBS")
     file_date = file_name[3:12]
 
-    # Check that date in time column of df matches date in file name
-    if not df.empty:
-      df_date = df.index[0].strftime('%Y-%m-%d')
-      if not df_date.startswith(file_date):
-        error(None, -1, "Date in file name does not match date in time column")
-        error(None, -1, f"  Date in file name: {file_date}")
-        error(None, -1, f"  Date in time column: {df_date}")
-
-    if df_last is not None:
-      if not df.index.is_monotonic_increasing:
-        if df.index[0] <= df_last.index[-1]:
-          xprint("  Warning: Time values are not strictly increasing across files")
-          xprint(f"  Last timestamp of previous file: {df_last.index[-1]}")
-          xprint(f"  First timestamp of current file: {df.index[0]}")
+    check_times(df, df_last, file_date)
 
     df_last = df
 
