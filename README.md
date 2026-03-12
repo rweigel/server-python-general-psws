@@ -1,5 +1,12 @@
 # Usage
 
+```
+conda deactivate
+conda env remove -y -n psws-python-3.11
+conda create -y -n psws-python-3.11 python=3.11
+conda activate psws-python-3.11
+```
+
 Install `server-python-general`
 
 ```
@@ -10,14 +17,14 @@ pip install -e .
 
 Install `server-python-general-psws` plug-in
 ```
+cd ../
 git clone https://github.com/rweigel/server-python-general-psws
-cd server-python-general
-pip install -e .
 ```
 
 Test the plug-in
 
 ```
+pip install requests
 cd server-python-general-psws
 python test.py --config config.json
 ```
