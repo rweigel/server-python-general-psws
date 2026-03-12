@@ -5,6 +5,10 @@
     "info": "$PSWS_BIN_DIR/info.py",
     "data": "$PSWS_BIN_DIR/data.py"
   },
+  "xstream": {
+    "stderr": true,
+    "chunk_size": 1000000
+  },
   "ENV": {
     "PSWS_BIN_DIR": "bin",
     "PSWS_DATA_DIR": "data"

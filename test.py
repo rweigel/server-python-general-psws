@@ -28,6 +28,7 @@ def run_tests(configs, wait):
 
   utilrsw.uvicorn.start('hapiserver.app', configs, wait)
 
+
   url = url_base
   log_test_title(url)
   response = requests.get(url)
@@ -42,20 +43,27 @@ def run_tests(configs, wait):
   assert 'catalog' in response.json()
   assert len(response.json()['catalog']) > 0
 
-  url = f"{url_base}/info?dataset=S000028"
+  url = f"{url_base}/info?dataset=S000028/mag"
   response = requests.get(url)
   assert response.status_code == 200
   assert 'application/json' in response.headers['Content-Type']
   assert 'parameters' in response.json()
   assert len(response.json()['parameters']) > 0
 
-  url = f"{url_base}/data?dataset=S000028&&start=2025-10-20T00:00:00Z&stop=2025-10-20T00:00:01Z"
+  url = f"{url_base}/data?dataset=S000028/mag&start=2025-10-20T00:00:00Z&stop=2025-10-20T00:00:01Z"
   response = requests.get(url)
   assert response.status_code == 200
   assert 'text/csv' in response.headers['Content-Type']
   assert response.text.startswith('2025-10-20T00:00:00Z')
 
-  url = f"{url_base}/data?dataset=S000028&&start=2025-10-20T00:00:00Z&stop=2025-10-20T00:00:01Z&parameters=Field_Vector"
+  # Data extends past stop
+  url = f"{url_base}/data?dataset=S000028/mag&start=2025-10-21T04:01:56Z&stop=2025-10-21T04:02:01Z"
+  response = requests.get(url)
+  assert response.status_code == 200
+  assert 'text/csv' in response.headers['Content-Type']
+  assert response.text.startswith('2025-10-21T04:01:56Z')
+
+  url = f"{url_base}/data?dataset=S000028/mag&start=2025-10-20T00:00:00Z&stop=2025-10-20T00:00:01Z&parameters=Field_Vector"
   response = requests.get(url)
   assert response.status_code == 200
   assert 'text/csv' in response.headers['Content-Type']
