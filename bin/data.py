@@ -16,6 +16,7 @@
 #  python data.py S000028/mag 2025-10-20T00:00:00Z 2025-10-29T00:00:00Z
 #  python data.py S000001/mag 2022-07-08T00:00:00Z 2022-07-09T00:00:00Z
 #  python data.py S000001/doppler 2020-08-07T00:00:00Z 2022-08-08T00:00:00Z
+#  python data.py N000001/doppler 2019-05-24T00:00:00Z 2019-05-25T23:59:59Z
 #
 #  python data.py S000028/mag 2025-10-20T00:00:00Z 2025-10-21T00:00:00Z Field_Vector
 #  python data.py S000001/mag 2022-07-08T00:00:00Z 2022-07-09T00:00:00Z Field_Vector
@@ -129,6 +130,10 @@ def print_data(id, filename, start, stop, parameters, data_dir):
 
 def print_data_doppler(filepath, start, stop, parameters):
 
+  if parameters is None:
+    parameters = ['Freq', 'Vpk']
+
+  # See check_files.py for a faster read approach using pandas.
   with open(filepath, 'r') as f:
     for line in f:
       log(f"Processing line: {line.strip()}")
@@ -136,12 +141,17 @@ def print_data_doppler(filepath, start, stop, parameters):
         continue
       cols = line.split(',')
       ts = cols[0].strip()
+      if ts[0:20] < start:
+        continue
+      if ts[0:20] >= stop:
+        break
+
       row = ts
       if 'Freq' or 'Vpk' in parameters:
         row += "," + cols[1].strip()
       if 'Vpk' in parameters:
         row += "," + cols[2].strip()
-      log(row)
+      print(row)
 
 
 def print_data_mag(filepath, start, stop, parameters):
@@ -154,6 +164,9 @@ def print_data_mag(filepath, start, stop, parameters):
         with z.open(filename) as f:
           data += f.read().decode('utf-8')
     return data
+
+  if parameters is None:
+    parameters = ['Field_Vector', 'rxryrz', 'rt', 'lt', 'Tm']
 
   # TODO: This will be much faster if CSV files were read using Pandas, which
   # loops over lines in c code.
@@ -218,6 +231,7 @@ def print_data_mag(filepath, start, stop, parameters):
 
     print(row)
 
+
 def _data_dir():
 
   # Default data directory is ../data relative to this script
@@ -261,10 +275,9 @@ if len(sys.argv) < 4:
 
 id, start, stop = sys.argv[1], sys.argv[2], sys.argv[3]
 
+parameters = None
 if len(sys.argv) > 4:
   parameters = [p.strip() for p in sys.argv[4].split(",")]
-else:
-  parameters = ['Field_Vector', 'rxryrz', 'rt', 'lt', 'Tm']
 
 data_dir = _data_dir()
 

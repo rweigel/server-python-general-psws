@@ -2,9 +2,10 @@
 #   python info.py <id>
 # where <id> is the station ID, e.g., S000028 found in first column of catalog.csv
 #
-# Example:
-#   python info.py S000028
-#
+# Examples:
+#   python info.py S000028/mag
+#   python info.py N000001/doppler
+
 # Returns HAPI info JSON stdout
 #
 # Equivalent API response to:
@@ -40,7 +41,8 @@ def get_catalog():
 def info(dataset):
   catalog = get_catalog()
 
-  with open(SCRIPT_DIR / 'info.template.json', 'r') as f:
+  data_type = dataset.split('/')[-1]
+  with open(SCRIPT_DIR / f'info.{data_type}.template.json', 'r') as f:
     info = json.load(f)
 
   dataset = sys.argv[1]

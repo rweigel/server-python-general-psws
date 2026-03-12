@@ -8,8 +8,8 @@ from pathlib import Path
 print_first_lines = False
 
 # Get all files in ../data/*/magData directories
-#data_dir = Path(os.path.join(os.path.dirname(__file__), '..', 'data'))
-data_dir = Path('data2/psws/home_filtered')
+data_dir = Path(os.path.join(os.path.dirname(__file__), '..', '..', 'data'))
+#data_dir = Path('data2/psws/home_filtered')
 #data_dir = Path('/Volumes/WDMyPassport5TB-2/psws/home_filtered')
 
 def xprint(msg):
@@ -35,13 +35,14 @@ def files(data_type):
     sub_dir = 'csvData'
     ext = '.csv'
 
+  xprint(f"Reading {data_type} files from {data_dir}")
   for dir_name in data_dir.iterdir():
     if dir_name.is_dir():
       all_files[dir_name.name] = {}
 
       mag_data_dir = dir_name / sub_dir
       n_files = len(list((mag_data_dir).glob(f'*{ext}')))
-      xprint(f"{dir_name.name}/{sub_dir} has {n_files} {ext} files")
+      xprint(f"  {dir_name.name}/{sub_dir} has {n_files} {ext} files")
 
       if not mag_data_dir.exists() or not mag_data_dir.is_dir():
         continue
@@ -53,6 +54,22 @@ def files(data_type):
       all_files[dir_name.name] = files
 
   return all_files
+
+
+def location_doppler(line):
+  # Extract lat, long and elevation from first line which has form
+  #,2020-08-06T00:00:00Z,N0000008,EN91fl,41.493744, -81.578039, 300,Cleveland Hts Ohio,S1,WWV10
+
+  parts = line.split(',')
+  if len(parts) < 7:
+    return None
+  try:
+    lat = float(parts[4])
+    lon = float(parts[5])
+    elev = float(parts[6])
+    return (lat, lon, elev)
+  except ValueError:
+    return None
 
 def read_doppler(filepath):
   import pandas as pd
@@ -68,6 +85,10 @@ def read_doppler(filepath):
   xprint(f"    first line: {lines[0].strip()}")
   xprint(f"    last line:  {lines[-1].strip()}")
 
+  location = location_doppler(lines[0].strip())
+
+  xprint(f"    location:  {location}")
+
   # Read CSV file with pandas, skipping comment lines that start with #
   df = pd.read_csv(filepath, comment='#', skipinitialspace=True)
 
@@ -76,7 +97,7 @@ def read_doppler(filepath):
     df['UTC'] = pd.to_datetime(df['UTC'])
     df.set_index('UTC', inplace=True)
 
-  return df
+  return df, location
 
 
 def read_mag(filepath):
@@ -248,8 +269,12 @@ dop_files = files('doppler')
 
 df_last = None
 for dataset in dop_files:
-  xprint(f"Dataset: {dataset}")
+  xprint(f"Directory: {dataset}")
   filepaths = dop_files[dataset]
+  if len(filepaths) == 0:
+    xprint("  No doppler files found.")
+  else:
+    xprint(f"  Processing {len(filepaths)} doppler files")
 
   # Extract unique parts after 'Z_'
   unique_suffixes = set()
@@ -260,16 +285,17 @@ for dataset in dop_files:
       unique_suffixes.add(suffix)
 
   unique_suffixes = sorted(unique_suffixes)
-  xprint(f"  {len(unique_suffixes)} unique suffixes: {unique_suffixes}")
+  s = "es" if len(unique_suffixes) != 1 else ""
+  xprint(f"  {len(unique_suffixes)} unique suffix{s}: {unique_suffixes}")
 
   for suffix in sorted(unique_suffixes):
-    xprint(f"  * Processing suffix: {suffix}")
+    xprint(f"  * Processing files that end with: {suffix}")
     # Get all files with this suffix
     matching_files = [fp for fp in filepaths if fp.endswith(suffix)]
     for filepath in matching_files:
       xprint(f"  File: {filepath}")
       try:
-        df = read_doppler(os.path.join(data_dir, filepath))
+        df, location = read_doppler(os.path.join(data_dir, filepath))
       except Exception as e:
         error(None, -1, "Uncaught read error", e)
         continue

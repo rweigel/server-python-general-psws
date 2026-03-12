@@ -24,7 +24,7 @@ git clone https://github.com/rweigel/server-python-general-psws
 Test the plug-in
 
 ```
-pip install requests
+pip install requests pandas
 cd server-python-general-psws
 python test.py --config config.json
 ```

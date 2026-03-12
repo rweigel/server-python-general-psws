@@ -43,6 +43,7 @@ def run_tests(configs, wait):
   assert 'catalog' in response.json()
   assert len(response.json()['catalog']) > 0
 
+  # Magnetometer data
   url = f"{url_base}/info?dataset=S000028/mag"
   response = requests.get(url)
   assert response.status_code == 200
@@ -68,6 +69,26 @@ def run_tests(configs, wait):
   assert response.status_code == 200
   assert 'text/csv' in response.headers['Content-Type']
   assert response.text.startswith('2025-10-20T00:00:00Z')
+
+  # Doppler data
+  url = f"{url_base}/info?dataset=N000001/doppler"
+  response = requests.get(url)
+  assert response.status_code == 200
+  assert 'application/json' in response.headers['Content-Type']
+  assert 'parameters' in response.json()
+  assert len(response.json()['parameters']) > 0
+
+  url = f"{url_base}/data?dataset=N000001/doppler&start=2019-05-24T00:07:46Z&stop=2019-05-24T00:07:49Z"
+  response = requests.get(url)
+  assert response.status_code == 200
+  assert 'text/csv' in response.headers['Content-Type']
+  assert response.text.startswith('2019-05-24T00:07:46Z')
+
+  url = f"{url_base}/data?dataset=N000001/doppler&start=2019-05-24T00:07:46Z&stop=2019-05-24T00:07:49Z&parameters=Freq"
+  response = requests.get(url)
+  assert response.status_code == 200
+  assert 'text/csv' in response.headers['Content-Type']
+  assert response.text.startswith('2019-05-24T00:07:46Z')
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@
       "type": "isotime",
       "length": 20,
       "units": "UTC",
-      "description": "The UTC date/time",
+      "description": "UTC date/time",
       "fill": null
     },
     {
