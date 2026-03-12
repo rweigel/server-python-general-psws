@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+# Try to read all files. Note that we should really be using the code
+# in data.py for the read to ensure what works here will work there.
+
 # For debugging - print first two lines of each file only
 print_first_lines = False
 
